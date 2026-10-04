@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
-import { Search, QrCode, Smartphone, ShoppingBag, Save, ArrowLeft, Globe, Camera, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Search, QrCode, Smartphone, ShoppingBag, Save, ArrowLeft, Globe, Camera, Eye, EyeOff, CheckCircle, ShieldAlert } from 'lucide-react';
+
+// ==========================================
+// ⚙️ إعدادات الحماية الخاصة بالمدير (تستطيع تغييرها هنا)
+// ==========================================
+const ADMIN_PHONE = "0770193164"; 
+const ADMIN_PASSWORD = "@€%AMnE55LaRgO89KaouDJi@#€%"; 
 
 export default function App() {
-  const [lang, setLang] = useState('ar'); // التبديل بين العربية والفرنسية
+  const [lang, setLang] = useState('ar'); 
 
   return (
     <Router>
@@ -38,7 +44,7 @@ export default function App() {
 function AdminPanel({ lang }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [shops, setShops] = useState([
-    { id: '1', shop_name: 'متجر الأناقة', phone_number: '0555123456', max_products: 50, is_unlimited: false, total_products: 12 },
+    { id: '1', shop_name: 'متجر الأناقة', phone_number: '0555999999', max_products: 50, is_unlimited: false, total_products: 12 },
     { id: '2', shop_name: 'إلكترو وهران', phone_number: '0666987654', max_products: 50, is_unlimited: true, total_products: 45 }
   ]);
 
@@ -53,7 +59,7 @@ function AdminPanel({ lang }) {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <h2 className="text-2xl font-bold text-center mb-6 text-cyan-400">
-        {lang === 'ar' ? 'لوحة تحكم المدير السرية' : "Panneau d'administration"}
+        {lang === 'ar' ? 'لوحة تحكم المدير السرية (مرحباً بالمدير)' : "Panneau d'administration"}
       </h2>
       
       <div className="relative mb-6">
@@ -122,13 +128,43 @@ function MerchantRegister() {
 
 function MerchantLogin() {
   const navigate = useNavigate();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = () => {
+    // التعديل والمطابقة للتأكد إن كان المستخدم هو المدير
+    if (phone === ADMIN_PHONE && password === ADMIN_PASSWORD) {
+      setError('');
+      navigate('/admin-secure');
+    } else if (phone && password) {
+      setError('');
+      navigate('/dashboard/demo');
+    } else {
+      setError('يرجى ملء جميع الحقول المطلوبة');
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto mt-12 p-6 bg-slate-800 rounded-xl border border-slate-700">
       <h2 className="text-xl font-bold text-center mb-6 text-cyan-400">تسجيل الدخول - فضاء التاجر</h2>
+      {error && <p className="text-sm text-red-400 text-center mb-2 font-medium">❌ {error}</p>}
       <div className="space-y-4">
-        <input type="text" placeholder="رقم الهاتف" className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700" />
-        <input type="password" placeholder="كلمة المرور" className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700" />
-        <button onClick={() => navigate('/dashboard/demo')} className="w-full bg-cyan-600 py-3 rounded-lg font-bold">دخول الحساب</button>
+        <input 
+          type="text" 
+          placeholder="رقم الهاتف" 
+          className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+        <input 
+          type="password" 
+          placeholder="كلمة المرور" 
+          className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button onClick={handleLogin} className="w-full bg-cyan-600 py-3 rounded-lg font-bold hover:bg-cyan-500 transition">دخول الحساب</button>
         <p className="text-center text-sm text-slate-400">تاجر جديد؟ <Link to="/register" className="text-cyan-400">افتح متجرك مجاناً الآن</Link></p>
       </div>
     </div>
@@ -178,24 +214,21 @@ function MerchantDashboard({ lang }) {
       {activeTab === 1 && (
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 space-y-4">
           <h3 className="text-lg font-bold border-b border-slate-700 pb-2">تحديث بيانات المتجر</h3>
-          <input type="text" placeholder="اسم المحل" defaultValue="متجر الأناقة" className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700" />
-          <input type="text" placeholder="رابط فيسبوك" className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700" />
-          <input type="text" placeholder="رابط إنستغرام" className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700" />
-          <input type="text" placeholder="رابط تيك توك" className="w-full bg-slate-900 p-3 rounded-lg border border-slate-700" />
-          <button className="bg-cyan-600 px-6 py-2.5 rounded-lg font-bold flex items-center gap-2"><Save size={18}/> حفظ التعديلات</button>
-        </div>
-      )}
+حفظ التعديلات
 
-      {activeTab === 2 && (
-        <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 text-center space-y-4">
-          <h3 className="text-lg font-bold mb-4">كود الـ QR الخاص بمتجرك للزبائن</h3>
-          <div className="bg-white p-4 inline-block rounded-xl border-4 border-cyan-500">
-            <QrCode size={180} className="text-slate-900" />
-          </div>
-          <p className="text-sm text-slate-400">بإمكان الزبائن مسح هذا الكود لمعاينة السلع مباشرة</p>
+)}
+
+{activeTab === 2 && (
+
+كود الـ QR الخاص بمتجرك للزبائن
+
+
+
+بإمكان الزبائن مسح هذا الكود لمعاينة السلع مباشرة
 حفظ الكود كصورة
 
 )}
+
 {activeTab === 3 && (
 
 
@@ -204,10 +237,10 @@ function MerchantDashboard({ lang }) {
 
 الباقة المجانية: {productsCount} / 50 منتج
 
- تصوير المنتج (HD)
+تصوير المنتج (HD)
 
 
- حفظ السلعة
+حفظ السلعة
 
 
 
@@ -215,8 +248,9 @@ function MerchantDashboard({ lang }) {
 onClick={() => setShowProductsList(!showProductsList)}
 className="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition"
 >
-{showProductsList ?  : }
+{showProductsList ? : }
 {showProductsList ? 'إخفاء قائمة المنتجات من أسفل' : 'إظهار المنتجات المحفوظة المُرتبة أبجدياً'}
+
 {showProductsList && (
 
 {products.map((p, idx) => (
@@ -233,13 +267,14 @@ Barcode: {p.barcode}
 
 
 )}
+
 {showPopup && (
 
 
 تنبيه انتهاء السعة المجانية!
 لقد وصلت للحد الأقصى لباقة التجربة المحددة بـ 50 منتجاً، يرجى التواصل مع الإدارة لفتح التخزين والمخزون غير المحدود.
 
-
+<a href={https://wa.me{ADMIN_PHONE.substring(1)}} className="block w-full bg-emerald-600 py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-500 transition">
 تواصل عبر واتساب الإدارة
 
 <button onClick={() => setShowPopup(false)} className="w-full bg-slate-700 py-2 rounded-lg text-xs font-medium">
@@ -252,11 +287,13 @@ Barcode: {p.barcode}
 
 );
 }
+
 // ==========================================
 // 3️⃣ واجهة الزبون الاحترافية (CUSTOMER VIEW)
 // ==========================================
 function CustomerView({ lang }) {
 const [scanResult, setScanResult] = useState(null);
+
 const handleSimulateScan = () => {
 setScanResult({
 name: 'حليب الصومام 1ل كامل الدسم',
@@ -264,6 +301,7 @@ price: '120 دج',
 img: 'unsplash.com'
 });
 };
+
 return (
 
 
@@ -272,6 +310,7 @@ PRO
 
 مرحباً بك في متجر الأناقة
 امسح باركود أي سلعة في المحل لمعرفة سعرها فوراً
+
 f
 
 
@@ -281,10 +320,11 @@ f
 🎵
 
 مسح المنتج (فتح الكاميرا والاضاءة)
+
 {scanResult && (
 
 
- تم التعرف على السلعة بنجاح
+تم التعرف على السلعة بنجاح
 
 
 
@@ -304,3 +344,4 @@ className="w-full bg-slate-700 text-sm font-bold py-2 rounded-lg hover:bg-slate-
 
 );
 }
+
