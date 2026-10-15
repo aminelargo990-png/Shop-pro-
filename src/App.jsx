@@ -1,321 +1,1134 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { Search, QrCode, Smartphone, Save, Globe, Camera, Eye, EyeOff, CheckCircle, Shield, Users, Zap, SmartphoneNfc, ShoppingBag, Plus, BarChart3, Home, Settings, Trash2, ArrowRight } from 'lucide-react';
+import { useEffect, useState } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  Navigate,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 
-const ADMIN_PHONE = "0770193164"; 
-const ADMIN_PASSWORD = "@\u20ac\u0025\u0041\u004d\u006e\u0045\u0035\u0035\u004c\u0061\u0052\u0067\u0030\u0038\u0039\u0049"; 
+import {
+  Store,
+  Package,
+  Plus,
+  Trash2,
+  Edit,
+  LogOut,
+  Globe,
+  Camera,
+  Search,
+  QrCode,
+  Save,
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  ExternalLink,
+} from "lucide-react";
+
+import { supabase } from "./lib/supabase.js";
+
+const LIMIT = 50;
+
+const translations = {
+  ar: {
+    app: "ShopPro DZ",
+    login: "تسجيل الدخول",
+    register: "إنشاء متجر",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    store: "اسم المتجر",
+    phone: "رقم الهاتف",
+    enter: "دخول",
+    create: "إنشاء الحساب",
+    dashboard: "لوحة المتجر",
+    products: "المنتجات",
+    add: "إضافة منتج",
+    name: "اسم المنتج",
+    price: "السعر بالدينار",
+    barcode: "الباركود",
+    photo: "صورة المنتج",
+    save: "حفظ",
+    cancel: "إلغاء",
+    edit: "تعديل",
+    delete: "حذف",
+    logout: "تسجيل الخروج",
+    search: "ابحث عن منتج...",
+    count: "عدد المنتجات",
+    free: "الباقة المجانية",
+    unlimited: "منتج",
+    loading: "جارٍ التحميل...",
+    noProducts: "لا توجد منتجات حتى الآن",
+    success: "تم الحفظ بنجاح",
+    error: "حدث خطأ",
+    qr: "رابط متجرك",
+    copy: "افتح صفحة المتجر",
+    back: "رجوع",
+    upload: "اختر صورة",
+    loginFirst: "يرجى تسجيل الدخول أولًا",
+    trialEnded: "وصلت إلى الحد المجاني. تواصل مع المدير لتفعيل حسابك.",
+    authError: "تعذر تسجيل الدخول أو إنشاء الحساب.",
+    confirmDelete: "هل تريد حذف هذا المنتج؟",
+    invalidPrice: "أدخل سعرًا صحيحًا أكبر من أو يساوي صفرًا.",
+    noAccount: "ليس لديك حساب؟",
+    haveAccount: "لديك حساب بالفعل؟",
+    language: "Français",
+    storeUnavailable: "المتجر غير متاح أو لا يمكن عرض بياناته حاليًا.",
+    scanHint: "يمكن للزبائن فتح هذا الرابط لمشاهدة المتجر.",
+    profileError: "تعذر تحميل بيانات المتجر.",
+    cameraUnavailable: "إضافة مسح الباركود بالكاميرا ستتم في الخطوة التالية.",
+  },
+  fr: {
+    app: "ShopPro DZ",
+    login: "Connexion",
+    register: "Créer une boutique",
+    email: "Adresse e-mail",
+    password: "Mot de passe",
+    store: "Nom de la boutique",
+    phone: "Téléphone",
+    enter: "Se connecter",
+    create: "Créer le compte",
+    dashboard: "Tableau de bord",
+    products: "Produits",
+    add: "Ajouter un produit",
+    name: "Nom du produit",
+    price: "Prix en DZD",
+    barcode: "Code-barres",
+    photo: "Photo du produit",
+    save: "Enregistrer",
+    cancel: "Annuler",
+    edit: "Modifier",
+    delete: "Supprimer",
+    logout: "Déconnexion",
+    search: "Rechercher un produit...",
+    count: "Nombre de produits",
+    free: "Offre gratuite",
+    unlimited: "produits",
+    loading: "Chargement...",
+    noProducts: "Aucun produit pour le moment",
+    success: "Enregistré avec succès",
+    error: "Une erreur est survenue",
+    qr: "Lien de votre boutique",
+    copy: "Ouvrir la boutique",
+    back: "Retour",
+    upload: "Choisir une photo",
+    loginFirst: "Veuillez vous connecter.",
+    trialEnded: "Limite gratuite atteinte. Contactez le gestionnaire.",
+    authError: "Connexion ou création de compte impossible.",
+    confirmDelete: "Voulez-vous supprimer ce produit ?",
+    invalidPrice: "Saisissez un prix valide supérieur ou égal à zéro.",
+    noAccount: "Pas encore de compte ?",
+    haveAccount: "Vous avez déjà un compte ?",
+    language: "العربية",
+    storeUnavailable: "Boutique indisponible ou données inaccessibles.",
+    scanHint: "Les clients peuvent ouvrir ce lien pour voir la boutique.",
+    profileError: "Impossible de charger la boutique.",
+    cameraUnavailable: "Le scanner caméra sera ajouté à l'étape suivante.",
+  },
+};
+
+function Message({ children, error = false }) {
+  if (!children) return null;
+
+  return (
+    <div
+      className={`rounded-xl border p-3 text-sm ${
+        error
+          ? "border-red-500/30 bg-red-500/10 text-red-300"
+          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+      }`}
+      role="status"
+    >
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, ...props }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-sm text-slate-300">{label}</span>
+      <input
+        {...props}
+        className={`w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400 ${props.className || ""}`}
+      />
+    </label>
+  );
+}
 
 export default function App() {
-  const [lang, setLang] = useState('ar'); 
-  const isAr = lang === 'ar';
+  const [lang, setLang] = useState(
+    () => localStorage.getItem("shoppro-language") || "fr"
+  );
+
+  const t = translations[lang] || translations.fr;
+  const isAr = lang === "ar";
+
+  function toggleLanguage() {
+    const next = isAr ? "fr" : "ar";
+    localStorage.setItem("shoppro-language", next);
+    setLang(next);
+  }
 
   return (
-    <Router>
-      <div className={`min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-0 sm:p-4 ${isAr ? 'font-sans rtl' : 'font-sans ltr'}`}>
-        <div className="w-full max-w-md bg-slate-900 min-h-screen sm:min-h-[850px] sm:rounded-[40px] shadow-2xl border-0 sm:border-[8px] border-slate-800 relative flex flex-col overflow-hidden">
-          
-          <header className="bg-slate-900/90 backdrop-blur-md px-4 py-3 flex justify-between items-center border-b border-slate-800/60 sticky top-0 z-50">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_#06b6d4]"></div>
-              <h1 className="text-base font-black bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-400 bg-clip-text text-transparent">ShopPro DZ</h1>
-            </div>
-            <button onClick={() => setLang(isAr ? 'fr' : 'ar')} className="flex items-center gap-1.5 bg-slate-800/80 hover:bg-slate-700 px-3 py-1 rounded-full text-[10px] font-bold border border-slate-700/50 transition-all">
-              <Globe size={12} className="text-cyan-400" /> {isAr ? 'Français' : 'العربية'}
-            </button>
-          </header>
+    <BrowserRouter>
+      <div
+        dir={isAr ? "rtl" : "ltr"}
+        className="min-h-screen bg-slate-950 font-sans text-slate-100"
+      >
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-800 bg-slate-950/95 px-4 py-4 backdrop-blur">
+          <Link to="/" className="flex items-center gap-2 font-black text-cyan-400">
+            <Store size={22} />
+            {t.app}
+          </Link>
 
-          <div className="flex-1 flex flex-col pb-20 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<MerchantLogin isAr={isAr} />} />
-              <Route path="/register" element={<MerchantRegister isAr={isAr} />} />
-              <Route path="/dashboard/:shopId" element={<MerchantDashboard isAr={isAr} />} />
-              <Route path="/admin-secure" element={<AdminPanel isAr={isAr} />} />
-              <Route path="/shop/:shopId" element={<CustomerView isAr={isAr} />} />
-            </Routes>
-          </div>
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm"
+          >
+            <Globe size={16} />
+            {t.language}
+          </button>
+        </header>
 
-        </div>
+        <main className="mx-auto w-full max-w-2xl px-4 py-6">
+          <Routes>
+            <Route path="/" element={<AuthPage t={t} />} />
+            <Route path="/dashboard" element={<Dashboard t={t} />} />
+            <Route path="/shop/:shopId" element={<PublicShop t={t} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+
+        <footer className="px-4 py-6 text-center text-xs text-slate-600">
+          ShopPro DZ · {new Date().getFullYear()}
+        </footer>
       </div>
-    </Router>
+    </BrowserRouter>
   );
 }
-function MerchantRegister({ isAr }) {
+
+function AuthPage({ t }) {
   const navigate = useNavigate();
-  return (
-    <div className="p-4 space-y-6 my-auto animate-fadeIn">
-      <div className="text-center space-y-2">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 mx-auto flex items-center justify-center shadow-lg shadow-cyan-900/30">
-          <ShoppingBag size={22} className="text-white" />
-        </div>
-        <h2 className="text-xl font-black text-white">{isAr ? 'إلا إنشاء متجرك الإلكتروني' : 'Create Store'}</h2>
-        <p className="text-xs text-slate-400">{isAr ? 'إدارة متجرك بكل سهولة وبدون تعقيد' : 'Manage your store easily'}</p>
-      </div>
-      <div className="bg-slate-900/50 p-5 rounded-3xl border border-slate-800/80 shadow-xl space-y-4">
-        <input type="text" placeholder={isAr ? 'اسم المحل أو العلامة التجارية' : 'Store Name'} className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-white focus:border-cyan-500 focus:outline-none transition-all" />
-        <input type="text" placeholder={isAr ? 'رقم الهاتف لتأكيد الحساب' : 'Phone'} className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-white focus:border-cyan-500 focus:outline-none transition-all" />
-        <input type="password" placeholder={isAr ? 'كلمة المرور السرية' : 'Password'} className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-white focus:border-cyan-500 focus:outline-none transition-all" />
-        <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-[10px] text-amber-400 font-medium leading-relaxed">
-          {isAr ? 'الباقة المجانية حد أقصى 50 منتج ستفعل تلقائياً.' : 'Free tier (50 products limit) activates automatically.'}
-        </div>
-        <button onClick={() => navigate('/dashboard/demo')} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-900/20 active:scale-95 transition-all text-xs text-white">
-          {isAr ? 'إنشاء متجرك بكل سهولة' : 'Register Free'}
-        </button>
-        <p className="text-center text-xs text-slate-500">{isAr ? 'لديك حساب بالفعل؟' : 'Have account?'} <Link to="/" className="text-cyan-400 font-bold hover:underline">{isAr ? 'دخول' : 'Login'}</Link></p>
-      </div>
-    </div>
-  );
-}
-function MerchantLogin({ isAr }) {
-  const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  
-  return (
-    <div className="p-4 space-y-6 my-auto animate-fadeIn">
-      <div className="text-center space-y-2">
-        <div className="w-14 h-14 bg-gradient-to-b from-slate-800 to-slate-900 rounded-3xl mx-auto flex items-center justify-center border border-slate-800 shadow-xl">
-          <Shield className="text-cyan-400" size={24} />
-        </div>
-        <h2 className="text-2xl font-black text-white">{isAr ? 'تسجيل الدخول' : 'Merchant Login'}</h2>
-        <p className="text-xs text-slate-400">{isAr ? 'إدارة متجرك بكل سهولة' : 'Manage your retail operations'}</p>
-      </div>
-      <div className="bg-slate-900/50 p-5 rounded-3xl border border-slate-800/80 shadow-xl space-y-4">
-        <input type="text" placeholder={isAr ? 'رقم الهاتف أو الإيميل' : 'Phone Number'} className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-white focus:border-cyan-500 focus:outline-none transition-all" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <input type="password" placeholder={isAr ? 'كلمة المرور' : 'Password'} className="w-full bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs text-white focus:border-cyan-500 focus:outline-none transition-all" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <button onClick={() => { if (phone === ADMIN_PHONE && password === ADMIN_PASSWORD) { navigate('/admin-secure'); } else { navigate('/dashboard/demo'); } }} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 rounded-xl font-black shadow-lg shadow-cyan-900/30 active:scale-95 transition-all text-sm text-white">
-          {isAr ? 'تسجيل الدخول' : 'Secure Login'}
-        </button>
-        <p className="text-center text-xs text-slate-500">{isAr ? 'ليس لديك حساب؟' : 'New to ShopPro?'} <Link to="/register" className="text-cyan-400 font-bold hover:underline">{isAr ? 'إنشاء متجر جديد' : 'Create Store'}</Link></p>
-      </div>
-    </div>
-  );
-}
-function AdminPanel({ isAr }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [shops, setShops] = useState([
-    { id: '1', shop_name: '\u0645\u062a\u062c\u0631\u0020\u0627\u0644\u0623\u0646\u0627\u0642\u0629', phone_number: '0555999999', is_unlimited: false, total_products: 12 },
-    { id: '2', shop_name: '\u0625\u0644\u0643\u062a\u0631\u0648\u0020\u0648\u0647\u0631\u0627\u0646', phone_number: '0666987654', is_unlimited: true, total_products: 45 }
-  ]);
-  const toggleUnlimited = (id) => { setShops(shops.map(shop => shop.id === id ? { ...shop, is_unlimited: !shop.is_unlimited } : shop)); };
-  const filteredShops = shops.filter(shop => shop.shop_name.includes(searchQuery) || shop.phone_number.includes(searchQuery));
 
-  return (
-    <div className="p-4 space-y-4 animate-fadeIn">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-5 rounded-2xl border border-slate-800 shadow-xl">
-        <div className="flex items-center gap-2 mb-1">
-          <Shield className="text-cyan-400" size={18} />
-          <h2 className="text-lg font-black text-white">{isAr ? 'لوحة تحكم المدير السرية' : 'Admin Panel'}</h2>
-        </div>
-        <p className="text-slate-400 text-[10px]">{isAr ? 'إدارة المتاجر وتفعيل الصلاحيات اللامحدودة' : 'Global controls'}</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between shadow-md">
-          <div><p className="text-slate-500 text-[9px] font-bold uppercase">{isAr ? 'إجمالي المتاجر' : 'Stores'}</p><p className="text-xl font-black text-cyan-400">{shops.length}</p></div>
-          <Users className="text-slate-700" size={20} />
-        </div>
-        <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between shadow-md">
-          <div><p className="text-slate-500 text-[9px] font-bold uppercase">{isAr ? 'الحسابات اللامحدودة' : 'Unlimited'}</p><p className="text-xl font-black text-emerald-400">{shops.filter(s=>s.is_unlimited).length}</p></div>
-          <Zap className="text-slate-700" size={20} />
-        </div>
-      </div>
-      <div className="relative">
-        <Search className="absolute right-3 top-3 text-slate-500" size={16} />
-        <input type="text" placeholder={isAr ? 'بحث سريع باسم المحل أو رقم الهاتف...' : 'Search...'} className="w-full bg-slate-900 text-white pr-9 pl-3 py-2.5 rounded-xl border border-slate-800 text-xs focus:outline-none focus:border-cyan-500 transition-all" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-      </div>
-      <div className="space-y-2">
-        {filteredShops.map((shop) => (
-          <div key={shop.id} className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center shadow-sm">
-            <div className="space-y-1">
-              <h4 className="font-bold text-white text-xs">{shop.shop_name}</h4>
-              <p className="text-[10px] font-mono text-cyan-400">{shop.phone_number}</p>
-              <div className="text-[9px] px-2 py-0.5 rounded bg-slate-800 inline-block text-slate-400 font-bold">{isAr ? 'السلع المرفوعة:' : 'Products:'} {shop.total_products}</div>
-            </div>
-            <button onClick={() => toggleUnlimited(shop.id)} className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all ${shop.is_unlimited ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
-              {shop.is_unlimited ? (isAr ? 'لامحدود' : 'Unlimited') : (isAr ? 'ترقية لباقة ∞' : 'Upgrade')}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-function MerchantDashboard({ isAr }) {
-  const [activeTab, setActiveTab] = useState(3); 
-  const [showProductsList, setShowProductsList] = useState(false); 
-  const [productsCount, setProductsCount] = useState(12); 
-  const [showPopup, setShowPopup] = useState(false);
-  const [products, setProducts] = useState([
-    { name: '\u062d\u0644\u064a\u0628\u0020\u0627\u0644\u0635\u0648\u0645\u0627\u0645\u0020\u0031\u004c', price: '120 \u062f\u062c', barcode: '613000112233' },
-    { name: '\u0643\u0648\u0643\u0627\u0020\u0643\u0648\u0644\u0627\u0020\u0031\u004c', price: '150 \u062f\u062c', barcode: '5449000000996' }
-  ]);
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [storeName, setStoreName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
-  const handleSaveProduct = (e) => {
+  useEffect(() => {
+    let alive = true;
+
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (!alive) return;
+
+      if (!sessionError && data.session) {
+        navigate("/dashboard", { replace: true });
+      }
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [navigate]);
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (productsCount >= 50) { setShowPopup(true); return; }
-    const name = e.target.pname.value;
-    const price = e.target.pprice.value;
-    const barcode = e.target.pbarcode.value;
-    if(name && price && barcode) {
-      setProducts([...products, { name, price: price + ' \u062f\u062c', barcode }].sort((a,b) => a.name.localeCompare(b.name)));
-      setProductsCount(productsCount + 1);
-      e.target.reset();
+    setBusy(true);
+    setError("");
+    setInfo("");
+
+    try {
+      if (mode === "register") {
+        if (!storeName.trim() || !phone.trim()) {
+          throw new Error(
+            t.error + ": " + t.store + " / " + t.phone
+          );
+        }
+
+        const { data, error: signUpError } =
+          await supabase.auth.signUp({
+            email: email.trim(),
+            password,
+          });
+
+        if (signUpError) throw signUpError;
+
+        if (!data.user) {
+          throw new Error(t.authError);
+        }
+
+        if (!data.session) {
+          setInfo(
+            "تم إنشاء الطلب. تحقق من بريدك الإلكتروني لتأكيد الحساب، ثم سجّل الدخول."
+          );
+          setBusy(false);
+          return;
+        }
+
+        const { error: profileError } = await supabase
+          .from("merchants")
+          .upsert(
+            {
+              id: data.user.id,
+              store_name: storeName.trim(),
+              phone: phone.trim(),
+            },
+            { onConflict: "id" }
+          );
+
+        if (profileError) throw profileError;
+
+        navigate("/dashboard", { replace: true });
+      } else {
+        const { error: loginError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+
+        if (loginError) throw loginError;
+
+        navigate("/dashboard", { replace: true });
+      }
+    } catch (err) {
+      setError(err?.message || t.authError);
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
   return (
-    <div className="flex-1 flex flex-col justify-between">
-      <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-        <div className="bg-gradient-to-br from-slate-900 to-slate-850 p-4 rounded-2xl border border-slate-800 flex items-center justify-between shadow-lg">
-          <div className="space-y-0.5">
-            <h3 className="text-sm font-black text-white">{isAr ? '\u0645\u062a\u062c\u0631\u0020\u0628\u0644\u0627\u0644' : 'Store Belal'}</h3>
-            <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full inline-block">{isAr ? '\u0645\u0641\u062a\u0648\u062d\u0020\u0627\u0644\u0622\u0646' : 'Open'}</span>
-          </div>
-          <span className="text-[10px] font-mono text-cyan-400 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">ID: demo</span>
+    <section className="mx-auto mt-6 max-w-md space-y-6">
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-400 to-blue-600">
+          <Store size={30} />
         </div>
 
-        {activeTab === 3 && (
-          <>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-                <BarChart3 size={16} className="text-cyan-400 mx-auto" />
-                <p className="text-[9px] text-slate-400">{isAr ? '\u0627\u0644\u0645\u062b\u064a\u0639\u0627\u062a' : 'Sales'}</p>
-                <p className="text-xs font-black text-white">482,350 \u062f\u062c</p>
-              </div>
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-                <Layers size={16} className="text-amber-400 mx-auto" />
-                <p className="text-[9px] text-slate-400">{isAr ? '\u0627\u0644\u0645\u062e\u0632\u0648\u0646' : 'Stock'}</p>
-                <p className="text-xs font-black text-amber-400">{productsCount} / 50</p>
-              </div>
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center space-y-1">
-                <CheckCircle size={16} className="text-emerald-400 mx-auto" />
-                <p className="text-[9px] text-slate-400">{isAr ? '\u0627\u0644\u0637\u0644\u0628\u0627\u062a' : 'Orders'}</p>
-                <p className="text-xs font-black text-white">124</p>
-              </div>
-            </div>
+        <h1 className="text-2xl font-black">{t.app}</h1>
 
-            <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h4 className="text-xs font-black text-white">{isAr ? '\u0625\u0636\u0627\u0641\u0629\u0020\u0645\u0646\u062a\u062c\u0020\u062c\u062f\u064a\u062f' : 'Add Product'}</h4>
-                <span className="text-[9px] bg-slate-950 px-2 py-0.5 rounded-full border border-slate-800 text-amber-400 font-bold">{productsCount}/50</span>
-              </div>
-              <form onSubmit={handleSaveProduct} className="space-y-3">
-                <input type="text" name="pname" placeholder={isAr ? '\u0627\u0633\u0645\u0020\u0627\u0644\u0645\u0646\u062a\u062c' : 'Product Name'} required className="w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-white focus:outline-none" />
-                <input type="text" name="pprice" placeholder={isAr ? '\u0627\u0644\u0633\u0639\u0631' : 'Price'} required className="w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-white focus:outline-none" />
-                <div className="flex gap-2">
-                  <input type="text" name="pbarcode" placeholder={isAr ? '\u0645\u0633\u062d\u0020\u0627\u0644\u0628\u0627\u0631\u0643\u0648\u062f' : 'Barcode'} required className="w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-white focus:outline-none" />
-                  <button type="button" className="bg-slate-800 px-3.5 rounded-xl text-cyan-400"><Camera size={14} /></button>
-                </div>
-                <button type="submit" className="w-full bg-cyan-600 py-3 rounded-xl font-black text-xs text-white">{isAr ? '\u062d\u0641\u0638\u0020\u0627\u0644\u0634\u0644\u0639\u0629' : 'Save Product'}</button>
-              </form>
-            </div>
-            <div className="bg-slate-900 p-3 rounded-2xl border border-slate-800">
-              <button onClick={() => setShowProductsList(!showProductsList)} className="w-full bg-slate-800/60 hover:bg-slate-750 py-2.5 rounded-xl font-black text-xs text-slate-300 border border-slate-700/40">
-                {showProductsList ? (isAr ? '\u0625\u062e\u0641\u0627\u0621' : 'Hide') : (isAr ? '\u0625\u0638\u0647\u0627\u0631\u0020\u0627\u0644\u0645\u0646\u062a\u062c\u0627\u062a' : 'Show Products')}
-              </button>
-              {showProductsList && (
-                <div className="mt-3 space-y-2 border-t border-slate-800 pt-3 max-h-40 overflow-y-auto">
-                  {products.map((p, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl text-xs border border-slate-850">
-                      <div><p className="font-bold text-white text-xs">{p.name}</p><p className="text-[9px] text-slate-500 font-mono">BC: {p.barcode}</p></div>
-                      <span className="text-cyan-400 font-black">{p.price}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        <p className="mt-2 text-sm text-slate-400">
+          {mode === "login" ? t.login : t.register}
+        </p>
+      </div>
+
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-5"
+      >
+        {mode === "register" && (
+          <>
+            <Field
+              label={t.store}
+              value={storeName}
+              onChange={(e) => setStoreName(e.target.value)}
+              required
+              autoComplete="organization"
+            />
+
+            <Field
+              label={t.phone}
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              autoComplete="tel"
+            />
           </>
         )}
 
-        {activeTab === 2 && (
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 text-center space-y-4 shadow-xl animate-fadeIn">
-            <h4 className="text-xs font-black text-slate-300">{isAr ? 'كود الـ QR الخاص بمتجرك للزبائن' : 'Store QR Code'}</h4>
-            <div className="bg-white p-3 inline-block rounded-3xl border-4 border-cyan-500/20"><QrCode size={140} className="text-slate-950" /></div>
-            <p className="text-[10px] text-slate-400 px-4 leading-relaxed">{isAr ? 'بإمكان الزبائن مسح الكود لمعاينة السلع مباشرة' : 'Scan to view store inventory'}</p>
-          </div>
-        )}
+        <Field
+          label={t.email}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+        />
 
-        {activeTab === 1 && (
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-4 shadow-xl animate-fadeIn">
-            <h4 className="text-xs font-black text-white">{isAr ? 'تعديل بيانات المتجر' : 'Store Settings'}</h4>
-            <input type="text" placeholder="Store Name" defaultValue="متجر بلال" className="w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs text-white focus:outline-none" />
-            <button className="bg-cyan-600 px-5 py-2 rounded-xl font-bold text-xs text-white"><Save size={12}/> {isAr ? 'حفظ البيانات' : 'Save'}</button>
-          </div>
-        )}
-      </div>
+        <Field
+          label={t.password}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+        />
 
-      <nav className="absolute bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800/80 px-6 py-2 flex justify-between items-center z-50">
-        <button onClick={() => setActiveTab(1)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 1 ? 'text-cyan-400 scale-105' : 'text-slate-500'}`}>
-          <Settings size={16} />
-          <span className="text-[8px] font-bold">{isAr ? '\u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a' : 'Settings'}</span>
-        </button>
-        <button onClick={() => setActiveTab(2)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 2 ? 'text-cyan-400 scale-105' : 'text-slate-500'}`}>
-          <QrCode size={16} />
-          <span className="text-[8px] font-bold">{isAr ? '\u0051\u0052\u0020\u0643\u0648\u062f' : 'QR code'}</span>
-        </button>
-        <button onClick={() => setActiveTab(3)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 3 ? 'text-cyan-400 scale-105' : 'text-slate-500'}`}>
-          <Home size={16} />
-          <span className="text-[8px] font-bold">{isAr ? '\u0627\u0644\u0631\u062a\u064a\u0633\u064a\u062e' : 'Dashboard'}</span>
-        </button>
-      </nav>
+        <Message error>{error}</Message>
+        <Message>{info}</Message>
 
-      {showPopup && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 backdrop-blur-xs">
-          <div className="bg-slate-900 p-5 rounded-3xl border-2 border-amber-500 max-w-xs w-full text-center space-y-4">
-            <h4 className="text-base font-black text-amber-400">{isAr ? 'تنبيه السعة!' : 'Limit'}</h4>
-            <a href={`https://wa.me{ADMIN_PHONE.substring(1)}`} className="block w-full bg-gradient-to-r from-emerald-600 to-teal-600 py-2 rounded-xl font-black text-xs text-white">WhatsApp</a>
-          </div>
-        </div>
-      )}
-    </div>
+        <button
+          type="submit"
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 font-bold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="animate-spin" size={18} /> : null}
+          {busy
+            ? t.loading
+            : mode === "login"
+              ? t.enter
+              : t.create}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode(mode === "login" ? "register" : "login");
+            setError("");
+            setInfo("");
+          }}
+          className="w-full py-2 text-sm text-cyan-400"
+        >
+          {mode === "login" ? t.noAccount : t.haveAccount}{" "}
+          {mode === "login" ? t.register : t.login}
+        </button>
+      </form>
+    </section>
   );
 }
 
-function CustomerView({ isAr }) {
-  const [scanResult, setScanResult] = useState(null);
-  const [isScanning, setIsScanning] = useState(false);
-  const startScanSimulation = () => {
-    setIsScanning(true); setScanResult(null);
-    setTimeout(() => {
-      setIsScanning(false);
-      setScanResult({ name: '\u0643\u0648\u0643\u0627\u0020\u0643\u0648\u0644\u0627\u0020\u0031\u004c', price: '150 \u062f\u062c' });
-    }, 2500); 
-  };
+function Dashboard({ t }) {
+  const navigate = useNavigate();
+
+  const [user, setUser] = useState(null);
+  const [merchant, setMerchant] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    barcode: "",
+  });
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadDashboard() {
+      setLoading(true);
+      setError("");
+
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+
+      if (!alive) return;
+
+      if (sessionError || !sessionData.session) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      const currentUser = sessionData.session.user;
+      setUser(currentUser);
+
+      const { data: profile, error: profileError } = await supabase
+        .from("merchants")
+        .select("*")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (!alive) return;
+
+      if (profileError) {
+        setError(profileError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!profile) {
+        setError(
+          "لم يتم العثور على ملف المتجر. سجّل الخروج ثم أنشئ الحساب مجددًا، أو راجع سياسات merchants."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setMerchant(profile);
+
+      const { data: productData, error: productError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("merchant_id", currentUser.id)
+        .order("name", { ascending: true });
+
+      if (!alive) return;
+
+      if (productError) {
+        setError(productError.message);
+      } else {
+        setProducts(productData || []);
+      }
+
+      setLoading(false);
+    }
+
+    loadDashboard();
+
+    return () => {
+      alive = false;
+    };
+  }, [navigate]);
+
+  function resetForm() {
+    setForm({ name: "", price: "", barcode: "" });
+    setPhotoFile(null);
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  async function signOut() {
+    const { error: signOutError } = await supabase.auth.signOut();
+
+    if (signOutError) {
+      setError(signOutError.message);
+      return;
+    }
+
+    navigate("/", { replace: true });
+  }
+
+  async function saveProduct(e) {
+    e.preventDefault();
+    if (!user || !merchant) return;
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const price = Number(form.price);
+
+      if (
+        !form.name.trim() ||
+        form.price === "" ||
+        !Number.isFinite(price) ||
+        price < 0
+      ) {
+        throw new Error(t.invalidPrice);
+      }
+
+      if (
+        !editingId &&
+        !merchant.unlimited_products &&
+        products.length >= (merchant.trial_product_limit || LIMIT)
+      ) {
+        throw new Error(t.trialEnded);
+      }
+
+      let photoPath = null;
+
+      if (photoFile) {
+        const safeName = photoFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("product-images")
+          .upload(path, photoFile, {
+            upsert: false,
+            contentType: photoFile.type || undefined,
+          });
+
+        if (uploadError) throw uploadError;
+        photoPath = path;
+      }
+
+      const payload = {
+        merchant_id: user.id,
+        name: form.name.trim(),
+        price,
+        barcode: form.barcode.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (editingId) {
+        if (photoPath) payload.photo_path = photoPath;
+
+        const { data, error: updateError } = await supabase
+          .from("products")
+          .update(payload)
+          .eq("id", editingId)
+          .eq("merchant_id", user.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+
+        setProducts((old) =>
+          old
+            .map((item) => (item.id === editingId ? data : item))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+      } else {
+        if (photoPath) payload.photo_path = photoPath;
+
+        const { data, error: insertError } = await supabase
+          .from("products")
+          .insert(payload)
+          .select()
+          .single();
+
+        if (insertError) {
+          if (photoPath) {
+            await supabase.storage
+              .from("product-images")
+              .remove([photoPath]);
+          }
+          throw insertError;
+        }
+
+        setProducts((old) =>
+          [...old, data].sort((a, b) => a.name.localeCompare(b.name))
+        );
+      }
+
+      setMessage(t.success);
+      resetForm();
+    } catch (err) {
+      setError(err?.message || t.error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function beginEdit(product) {
+    setEditingId(product.id);
+    setForm({
+      name: product.name || "",
+      price: String(product.price ?? ""),
+      barcode: product.barcode || "",
+    });
+    setPhotoFile(null);
+    setShowForm(true);
+    setError("");
+    setMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function deleteProduct(product) {
+    if (!window.confirm(t.confirmDelete)) return;
+    if (!user) return;
+
+    setError("");
+    setMessage("");
+
+    const { error: deleteError } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product.id)
+      .eq("merchant_id", user.id);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+
+    setProducts((old) => old.filter((item) => item.id !== product.id));
+
+    if (product.photo_path) {
+      const { error: imageError } = await supabase.storage
+        .from("product-images")
+        .remove([product.photo_path]);
+
+      if (imageError) {
+        setError(
+          "تم حذف المنتج، لكن تعذر حذف الصورة من Storage. قد نحتاج إلى مراجعة سياسة DELETE."
+        );
+        return;
+      }
+    }
+
+    setMessage(t.success);
+  }
+
+  async function getPhotoUrl(path) {
+    if (!path) return null;
+
+    const { data } = await supabase.storage
+      .from("product-images")
+      .createSignedUrl(path, 3600);
+
+    return data?.signedUrl || null;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-20 text-slate-400">
+        <Loader2 className="animate-spin" />
+        {t.loading}
+      </div>
+    );
+  }
+
+  if (!user || !merchant) {
+    return (
+      <div className="space-y-4">
+        <Message error>{error || t.profileError}</Message>
+        <Link to="/" className="inline-block text-cyan-400">
+          {t.back}
+        </Link>
+      </div>
+    );
+  }
+
+  const shopUrl = `${window.location.origin}/shop/${user.id}`;
+  const limit = merchant.unlimited_products
+    ? "∞"
+    : merchant.trial_product_limit || LIMIT;
+
+  const filteredProducts = products.filter((product) =>
+    `${product.name} ${product.barcode || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-6 text-center animate-fadeIn">
-      <div className="space-y-2 mt-2">
-        <div className="w-16 h-16 bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center font-black text-lg text-white shadow-xl shadow-cyan-950/40 border border-cyan-400/20">PRO</div>
-        <h2 className="text-lg font-black text-white">{isAr ? '\u0645\u0631\u062d\u0628\u0627\u0020\u0628\u0643\u0020\u0641\u064a\u0020\u0627\u0644\u0645\u062a\u062c\u0631' : 'Welcome'}</h2>
-        <p className="text-[10px] text-slate-400 max-w-xs mx-auto">{isAr ? 'امسح باركود أي سلعة في المحل لمعرفة سعرها فوراً' : 'Scan barcode'}</p>
+    <section className="space-y-5">
+      <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <div className="min-w-0">
+          <h1 className="break-words text-xl font-black">
+            {merchant.store_name}
+          </h1>
+          <p className="mt-1 text-sm text-slate-400">
+            {merchant.phone}
+          </p>
+        </div>
+
+        <button
+          onClick={signOut}
+          className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm"
+        >
+          <LogOut size={16} />
+          {t.logout}
+        </button>
       </div>
 
-      {!isScanning ? (
-        <button onClick={startScanSimulation} className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 py-4 rounded-xl font-black text-xs flex items-center justify-center gap-2 text-white shadow-xl active:scale-95 transition-all">
-          <Camera size={16} /> {isAr ? '\u0641\u062a\u062d\u0020\u0643\u0627\u0645\u064a\u0631\u0627\u0020\u0627\u0644\u0645\u0633\u062d' : 'Scan Camera'}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <Package className="mb-2 text-cyan-400" />
+          <p className="text-xs text-slate-400">{t.count}</p>
+          <p className="mt-1 text-2xl font-black">
+            {products.length} / {limit}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <QrCode className="mb-2 text-emerald-400" />
+          <p className="text-xs text-slate-400">{t.qr}</p>
+          <a
+            href={shopUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 flex items-center gap-1 break-all text-xs text-cyan-400"
+          >
+            {t.copy}
+            <ExternalLink size={14} />
+          </a>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <QrCode className="text-cyan-400" size={20} />
+          <h2 className="font-bold">{t.qr}</h2>
+        </div>
+
+        <p className="mb-3 break-all text-xs text-slate-400">{shopUrl}</p>
+
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shopUrl)}`}
+          alt="QR code"
+          className="mx-auto rounded-xl bg-white p-2"
+          width="220"
+          height="220"
+        />
+
+        <p className="mt-3 text-center text-xs text-slate-400">
+          {t.scanHint}
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-black">{t.products}</h2>
+
+        <button
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+            setError("");
+            setMessage("");
+          }}
+          className="flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-bold"
+        >
+          <Plus size={17} />
+          {t.add}
         </button>
+      </div>
+
+      <Message error>{error}</Message>
+      <Message>{message}</Message>
+
+      {showForm && (
+        <form
+          onSubmit={saveProduct}
+          className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-bold">
+              {editingId ? t.edit : t.add}
+            </h3>
+
+            <button
+              type="button"
+              onClick={resetForm}
+              className="text-sm text-slate-400"
+            >
+              {t.cancel}
+            </button>
+          </div>
+
+          <Field
+            label={t.name}
+            value={form.name}
+            onChange={(e) =>
+              setForm({ ...form, name: e.target.value })
+            }
+            required
+          />
+
+          <Field
+            label={t.price}
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.price}
+            onChange={(e) =>
+              setForm({ ...form, price: e.target.value })
+            }
+            required
+          />
+
+          <Field
+            label={t.barcode}
+            value={form.barcode}
+            onChange={(e) =>
+              setForm({ ...form, barcode: e.target.value })
+            }
+          />
+
+          <label className="block space-y-2">
+            <span className="text-sm text-slate-300">{t.photo}</span>
+
+            <span className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-950 p-4 text-sm">
+              <Camera size={18} />
+              {photoFile ? photoFile.name : t.upload}
+            </span>
+
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) =>
+                setPhotoFile(e.target.files?.[0] || null)
+              }
+            />
+          </label>
+
+          {photoFile && (
+            <img
+              src={URL.createObjectURL(photoFile)}
+              alt="Preview"
+              className="h-40 w-full rounded-xl object-contain"
+            />
+          )}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Save size={18} />
+            )}
+            {t.save}
+          </button>
+        </form>
+      )}
+
+      <label className="relative block">
+        <Search
+          className="absolute top-3.5 text-slate-500"
+          size={18}
+          style={{ [document.documentElement.dir === "rtl" ? "right" : "left"]: "12px" }}
+        />
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t.search}
+          className="w-full rounded-xl border border-slate-800 bg-slate-900 py-3 text-sm outline-none focus:border-cyan-400"
+          style={{
+            paddingRight: document.documentElement.dir === "rtl" ? "40px" : "12px",
+            paddingLeft: document.documentElement.dir === "rtl" ? "12px" : "40px",
+          }}
+        />
+      </label>
+
+      {filteredProducts.length === 0 ? (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">
+          {t.noProducts}
+        </div>
       ) : (
-        <div className="bg-slate-950 p-6 rounded-2xl border-2 border-cyan-500/30 relative overflow-hidden h-48 flex flex-col items-center justify-center space-y-3 shadow-2xl">
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-bounce z-10"></div>
-          <SmartphoneNfc size={36} className="text-cyan-400 animate-pulse" />
-          <p className="text-[10px] font-black text-cyan-400 animate-pulse">{isAr ? '\u062c\u0627\u0631\u064a\u0020\u0627\u0644\u0645\u0633\u062d\u0020\u0648\u062a\u0634\u063a\u064a\u0644\u0020\u0627\u0644\u0641\u0644\u0627\u0634' : 'Scanning...'}</p>
+        <div className="space-y-3">
+          {filteredProducts.map((product) => (
+            <ProductRow
+              key={product.id}
+              product={product}
+              t={t}
+              getPhotoUrl={getPhotoUrl}
+              onEdit={() => beginEdit(product)}
+              onDelete={() => deleteProduct(product)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProductRow({ product, t, getPhotoUrl, onEdit, onDelete }) {
+  const [photoUrl, setPhotoUrl] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+
+    if (product.photo_path) {
+      getPhotoUrl(product.photo_path).then((url) => {
+        if (alive) setPhotoUrl(url || "");
+      });
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [product.photo_path]);
+
+  return (
+    <article className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={product.name}
+          className="h-16 w-16 shrink-0 rounded-xl bg-slate-950 object-cover"
+        />
+      ) : (
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-slate-600">
+          <Package size={24} />
         </div>
       )}
 
-      {scanResult && (
-        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-right space-y-3 shadow-2xl animate-scaleIn">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-black text-[11px]">
-            <CheckCircle size={14} /> {isAr ? '\u062a\u0645\u0020\u0627\u0644\u062a\u0639\u0631\u0641\u0020\u0628\u0646\u062c\u0627\u062d' : 'Success'}
-          </div>
-          <div className="bg-slate-950 p-3 rounded-xl border border-slate-850 flex justify-between items-center">
-            <div className="space-y-0.5">
-              <h4 className="font-bold text-xs text-white">{scanResult.name}</h4>
-              <p className="text-[9px] text-slate-500 font-mono">613000112233</p>
-            </div>
-            <span className="text-lg font-black text-cyan-400">{scanResult.price}</span>
-          </div>
-          <button onClick={startScanSimulation} className="w-full bg-slate-800 text-[10px] font-black py-2 rounded-lg border border-slate-700">{isAr ? '\u0645\u0633\u062d\u0020\u0645\u0646\u062a\u062c\u0020\u062c\u062f\u064a\u062f' : 'New Scan'}</button>
-        </div>
-      )}
-    </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="break-words font-bold">{product.name}</h3>
+
+        <p className="mt-1 text-sm font-black text-cyan-400">
+          {Number(product.price).toLocaleString()} DZD
+        </p>
+
+        {product.barcode && (
+          <p className="mt-1 break-all text-xs text-slate-500">
+            {product.barcode}
+          </p>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-col gap-2">
+        <button
+          onClick={onEdit}
+          aria-label={t.edit}
+          className="rounded-lg bg-slate-800 p-2 text-cyan-400"
+        >
+          <Edit size={16} />
+        </button>
+
+        <button
+          onClick={onDelete}
+          aria-label={t.delete}
+          className="rounded-lg bg-red-950 p-2 text-red-400"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </article>
   );
 }
+
+function PublicShop({ t }) {
+  const { shopId } = useParams();
+
+  const [merchant, setMerchant] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadPublicShop() {
+      setLoading(true);
+      setUnavailable(false);
+
+      const { data: profile, error: profileError } = await supabase
+        .from("merchants")
+        .select("id, store_name, store_logo_url, instagram_url, facebook_url, tiktok_url")
+        .eq("id", shopId)
+        .maybeSingle();
+
+      if (!alive) return;
+
+      if (profileError || !profile) {
+        setUnavailable(true);
+        setLoading(false);
+        return;
+      }
+
+      setMerchant(profile);
+
+      const { data: productData, error: productError } = await supabase
+        .from("products")
+        .select("id, name, price, barcode, photo_path")
+        .eq("merchant_id", shopId)
+        .order("name", { ascending: true });
+
+      if (!alive) return;
+
+      if (productError) {
+        setUnavailable(true);
+      } else {
+        setProducts(productData || []);
+      }
+
+      setLoading(false);
+    }
+
+    loadPublicShop();
+
+    return () => {
+      alive = false;
+    };
+  }, [shopId]);
+
+  if (loading) {
+    return (
+      <div className="py-20 text-center text-slate-400">
+        <Loader2 className="mx-auto mb-3 animate-spin" />
+        {t.loading}
+      </div>
+    );
+  }
+
+  if (unavailable || !merchant) {
+    return (
+      <div className="space-y-4 py-10 text-center">
+        <AlertCircle className="mx-auto text-amber-400" size={40} />
+        <h1 className="text-xl font-bold">{t.storeUnavailable}</h1>
+        <Link to="/" className="inline-block text-cyan-400">
+          {t.back}
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <section className="space-y-5">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 text-center">
+        {merchant.store_logo_url ? (
+          <img
+            src={merchant.store_logo_url}
+            alt={merchant.store_name}
+            className="mx-auto mb-4 h-24 w-24 rounded-2xl object-cover"
+          />
+        ) : (
+          <Store className="mx-auto mb-4 text-cyan-400" size={42} />
+        )}
+
+        <h1 className="text-2xl font-black">{merchant.store_name}</h1>
+      </div>
+
+      {products.length === 0 ? (
+        <p className="rounded-2xl bg-slate-900 p-6 text-center text-slate-400">
+          {t.noProducts}
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {products.map((product) => (
+            <PublicProduct key={product.id} product={product} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PublicProduct({ product }) {
+  const [photoUrl, setPhotoUrl] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadImage() {
+      if (!product.photo_path) return;
+
+      const { data } = await supabase.storage
+        .from("product-images")
+        .createSignedUrl(product.photo_path, 3600);
+
+      if (alive) setPhotoUrl(data?.signedUrl || "");
+    }
+
+    loadImage();
+
+    return () => {
+      alive = false;
+    };
+  }, [product.photo_path]);
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={product.name}
+          className="h-44 w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-32 items-center justify-center bg-slate-950 text-slate-600">
+          <Package size={32} />
+        </div>
+      )}
+
+      <div className="p-4">
+        <h2 className="font-bold">{product.name}</h2>
+
+        <p className="mt-2 text-lg font-black text-cyan-400">
+          {Number(product.price).toLocaleString()} DZD
+        </p>
+      </div>
+    </article>
+  );
+    }
